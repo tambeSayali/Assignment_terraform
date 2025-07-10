@@ -1,0 +1,111 @@
+# git install
+sudo apt update
+sudo apt install git
+
+# configure
+git config --global user.name "shruti9527"
+git config --global user.email "deshpandeshrutiy@gmail.com"
+
+# path of the folder
+cd /path/to/your/project
+
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/your-username/your-repo-name.git
+git branch -M main
+git push -u origin main
+
+
+------------------------------------------------------------------------------------------------------------
+# connect to vm
+ssh azureuser@<your-vm-ip>
+
+# install terraform
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+
+# install azure
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# login into azure
+az login
+
+# Upload Your Terraform Project
+scp -r ./terraform_project azureuser@<your-vm-ip>:/home/azureuser/
+scp terraform.tfvars azureuser@<your-vm-ip>:/home/azureuser/terraform_project/
+
+# Run Terraform
+cd terraform_project
+terraform init
+terraform plan -var-file="terraform.tfvars"
+terraform apply -var-file="terraform.tfvars"
+-------------------------------------------------------------------------------------------
+
+# After creating VMs login into one of the vm (vm1)
+
+ssh azureuser@<vm1-public-ip>
+
+# install ansible
+sudo apt update
+sudo apt install -y ansible
+
+# Authenticate vm2 from vm1
+# Generate SSH key on vm1:
+
+ssh-keygen -t rsa -b 2048
+
+# Press Enter to accept defaults.
+
+# Copy the public key to vm2:
+
+ssh-copy-id azureuser@<vm2-private-ip>
+
+# If ssh-copy-id is not available, use:
+    
+ssh azureuser@<vm2-private-ip> "mkdir -p ~/.ssh"
+cat ~/.ssh/id_rsa.pub | ssh azureuser@<vm2-private-ip> "cat >> ~/.ssh/authorized_keys"
+
+# Create Ansible Playbook and Role
+# a. Create Ansible directory structure:
+mkdir -p ~/ansible/nginx-role/tasks
+cd ~/ansible
+
+# b. Create inventory.ini:
+[web]
+vm2 ansible_host=<vm2-private-ip> ansible_user=azureuser
+# c. Create nginx-role/tasks/main.yml:
+---
+- name: Install NGINX
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+
+- name: Copy HTML file
+  copy:
+    src: /home/azureuser/index.html
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+# d. Create site.yml:
+---
+- hosts: web
+  become: yes
+  roles:
+    - nginx-role
+
+# e. Create a sample index.html on vm1:
+
+echo "<h1>Hello from Ansible!</h1>" > ~/index.html
+
+#  Run the Playbook
+
+ansible-playbook -i inventory.ini site.yml
+# Test in Browser
+# Open your browser and go to:
+http://<vm2-public-ip>
